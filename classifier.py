@@ -33,7 +33,7 @@ model = nnModel.create_model()
 criterion = nn.NLLLoss()
 learning_rate = .005
 optimizer = optim.SGD(model.classifier.parameters(), lr=learning_rate)
-epochs = 30
+epochs = 5
 
 nnModel.train_model(model, train_dataloaders, valid_dataloaders, criterion, optimizer,epochs)
 
