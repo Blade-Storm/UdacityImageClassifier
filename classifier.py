@@ -14,28 +14,30 @@ import seaborn as sb
 import pandas as pd
 import time
 import nnModel
+import helpers.JsonLoader
+import helpers.DataLoader
 
+# Define the batch_size and create the data loaders
 batch_size = 32
-train_dataloaders, valid_dataloaders, test_dataloaders, train_datasets = nnModel.get_data(batch_size)
+train_dataloaders, valid_dataloaders, test_dataloaders, train_datasets = helpers.DataLoader.load_image_data(batch_size)
 
-
-import json
-
-with open('cat_to_name.json', 'r') as f:
-    cat_to_name = json.load(f)
+# Get the contents of the cat_to_name json file
+cat_to_name = helpers.JsonLoader.load_json('cat_to_name.json')
     
-#print(cat_to_name)
-
-
-
+# Create the model
 model = nnModel.create_model()
 
+# Define the loss function, learning rate, optimizer, and epochs to train with
 criterion = nn.NLLLoss()
-learning_rate = .005
-optimizer = optim.SGD(model.classifier.parameters(), lr=learning_rate)
-epochs = 5
+learning_rate = .001
+optimizer = optim.Adam(model.classifier.parameters(), lr=learning_rate)
+epochs = 10
 
-nnModel.train_model(model, train_dataloaders, valid_dataloaders, criterion, optimizer,epochs)
+# Train the model with validation
+nnModel.train_model_validation(model, train_dataloaders, valid_dataloaders, criterion, optimizer,epochs)
 
+# Perform the sanity check
+nnModel.sanity_check(cat_to_name, 'flowers/test/101/image_07949.jpg', model, 101)
 
+# Save the model
 nnModel.save_model(model, train_datasets, learning_rate, batch_size, epochs, criterion, optimizer)
