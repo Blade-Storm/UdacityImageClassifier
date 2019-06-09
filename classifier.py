@@ -1,43 +1,70 @@
 # Imports here
-import matplotlib.pyplot as plt
 import torch
 from torch import nn as nn
 from torch import optim as optim
-import torch.nn.functional as F
-import torchvision
-from torchvision import datasets, transforms, models
-import numpy as np
-from collections import OrderedDict
-#from workspace_utils import active_session
-from PIL import Image
-import seaborn as sb
-import pandas as pd
-import time
 import nnModel
-import helpers.JsonLoader
 import helpers.DataLoader
+import argparse
 
-# Define the batch_size and create the data loaders
-batch_size = 32
-train_dataloaders, valid_dataloaders, test_dataloaders, train_datasets = helpers.DataLoader.load_image_data(batch_size)
+#######################################################
+# Train a Neural Network using transfer learning:
+# 1. Get the directory to the image files to train with
+# 2. Set the directory to save checkpoints
+# 3. Choose the architecture
+# 4. Set the hyperparameters
+# 5. Choose GPU for training
 
-# Get the contents of the cat_to_name json file
-cat_to_name = helpers.JsonLoader.load_json('cat_to_name.json')
+# Create the parser and add the arguments
+parser = argparse.ArgumentParser(description="Train a Neural Network using transfer learning")
+# 1. Get the directory to the image files to train with
+parser.add_argument('data_directory', 
+                    help="The relative path to the image files to train on. It should include two folders: 'train' and 'test' for training.")
+# 2. Get the directory to the image files to train with
+parser.add_argument('--save_dir', default='/',
+                    help="The relative path to save the neural network checkpoint")
+# TODO: Add more support for other architectures                    
+# 3. Choose the architecture
+parser.add_argument('--arch', default="vgg19",
+                    help="The architecture you wish to train the model with. Can be: vgg19 or densenet161")
+# 4. Set the hyperparameters: Learning Rate, Hidden Units, Training Epochs, Training batch size
+parser.add_argument('--learning_rate', type=float, default="0.01",
+                    help="The learning rate for the model")
+parser.add_argument('--hidden_units', type=int, default=512,
+                    help="The number of units in the hidden layer")
+parser.add_argument('--epochs', type=int, default=15,
+                    help="The amount of training epochs you wish to use")
+parser.add_argument('--batch_size', type=int, default=32,
+                    help="The size of the batches you want to use for training")
+# 5. Choose the GPU for training
+parser.add_argument('--gpu', default=False, action='store_true',
+                    help="If you would like to use the GPU for training. Default is False")
+
+# Collect the arguments
+args = parser.parse_args()
+data_directory = args.data_directory
+save_directory = args.save_dir
+arch = args.arch
+learning_rate = args.learning_rate
+hidden_units = args.hidden_units
+epochs = args.epochs
+batch_size = args.batch_size
+gpu = args.gpu
+
+# Get the image data from the files and create the data loaders
+train_dataloaders, valid_dataloaders, test_dataloaders, train_datasets = helpers.DataLoader.load_image_data(data_directory, batch_size)
     
-# Create the model
-model = nnModel.create_model()
+# Create the model. Returns 0 if model cant be created
+model = nnModel.create_model(arch, hidden_units)
 
-# Define the loss function, learning rate, optimizer, and epochs to train with
-criterion = nn.NLLLoss()
-learning_rate = .001
-optimizer = optim.Adam(model.classifier.parameters(), lr=learning_rate)
-epochs = 10
+# If we sucessfully create a model continue with the training
+if model != 0:
+    # Define the loss function and optimizer
+    criterion = nn.NLLLoss()
+    # TODO Maybe move this to a select optimizer function
+    optimizer = optim.Adam(model.classifier.parameters(), learning_rate) 
 
-# Train the model with validation
-nnModel.train_model_validation(model, train_dataloaders, valid_dataloaders, criterion, optimizer,epochs)
+    # Train the model with validation
+    nnModel.train_model(model, train_dataloaders, valid_dataloaders, criterion, optimizer, epochs, gpu)
 
-# Perform the sanity check
-nnModel.sanity_check(cat_to_name, 'flowers/test/101/image_07949.jpg', model, 101)
-
-# Save the model
-nnModel.save_model(model, train_datasets, learning_rate, batch_size, epochs, criterion, optimizer)
+    # Save the model
+    nnModel.save_model(model, train_datasets, learning_rate, batch_size, epochs, criterion, optimizer, hidden_units, arch)
