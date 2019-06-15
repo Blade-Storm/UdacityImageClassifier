@@ -49,7 +49,7 @@ def train_model(model, train_dataloaders, valid_dataloaders, criterion, optimize
     # Train the classifier layers using backpropagation using the pre-trained network to get the features
     # Track the loss and accuracy on the validation set to determine the best hyperparameters
     print("Training the model...\n")
-
+        
     # Use the GPU if its available
     if use_gpu:
         device = torch.device('cuda')
@@ -64,7 +64,8 @@ def train_model(model, train_dataloaders, valid_dataloaders, criterion, optimize
 
     # With an active session train our model
     #with active_session():
-        
+    train_losses, test_losses = [], []
+
     # Create the training loop
     for e in range(epochs):
         # Set the model back to train mode
@@ -133,6 +134,11 @@ def train_model(model, train_dataloaders, valid_dataloaders, criterion, optimize
                     
             # Get the total time that has elapsed
             elapsed_time = time.time() - start_time  
+
+            # Update the training and validation losses to graph the learning curve
+            train_losses.append(training_loss/len(train_dataloaders))
+            test_losses.append(validation_loss/len(valid_dataloaders))
+            
             
             # Print out the statistical information
             print("Training Epoch: {}\n".format(e),
@@ -141,6 +147,10 @@ def train_model(model, train_dataloaders, valid_dataloaders, criterion, optimize
                     "Accuracy: {}\n".format(accuracy/len(valid_dataloaders) * 100),
                     "Total Time: {}\n".format(elapsed_time))  
 
+    plt.plot(train_losses, label='Training loss')
+    plt.plot(test_losses, label='Validation loss')
+    plt.legend(frameon=False)
+    plt.show()
     print("\nDone training the model \n")
 
 
@@ -149,15 +159,20 @@ def save_model(model, train_datasets, learning_rate, batch_size, epochs, criteri
 
     print("Saving the model...")
     # Before saving the model set it to cpu to aviod loading issues later
-    device = torch.device('cpu')
-    model.to(device)
+    #device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    #model.to(device)
 
     # Save the train image dataset
     model.class_to_idx = train_datasets.class_to_idx
 
+    if arch.lower() == "vgg19":
+        input_features = 25088
+    elif arch.lower() == "densenet161":
+        input_features = 2208
+
     # Save other hyperparamters
-    # TODO: Pass in the input and output sizes
-    checkpoint = {'input_size': 25088,
+    # TODO: Pass in the input size based on the model
+    checkpoint = {'input_size': input_features,
                 'output_size': 102,
                 'hidden_units': hidden_units,
                 'arch': arch,
@@ -169,6 +184,7 @@ def save_model(model, train_datasets, learning_rate, batch_size, epochs, criteri
                 'optimizer': optimizer.state_dict(),
                 'state_dict': model.state_dict(),
                 'class_to_idx': model.class_to_idx}
+
 
     torch.save(checkpoint, 'checkpoint.pth')
     print("Done saving the model")
@@ -203,8 +219,8 @@ def predict(categories, image_path, model, use_gpu, topk):
     ''' Predict the class (or classes) of an image using a trained deep learning model.
     '''
     # Use the GPU if its available
-    device = torch.device('cuda' if use_gpu else 'cpu')
-    model.to(device)
+    #device = torch.device('cuda' if use_gpu else 'cpu')
+    model.to('cpu')
     
     #Switch the model to evaluation mode to turn off dropout
     model.eval()
@@ -216,12 +232,13 @@ def predict(categories, image_path, model, use_gpu, topk):
 
         # We need a tensor for the model so change the image to a np.Array and then a tensor
         image = torch.from_numpy(image).float()
-        image.to(device)
+        image.unsqueeze_(0)
+        image.to('cpu')
 
         # Use the model to make a prediction
         logps = model.forward(image)
-        #ps = torch.exp(logps)
-        ps = F.softmax(logps.data)
+        ps = torch.exp(logps)
+        #ps = F.softmax(logps.data)
         #print("PS: {}".format(ps))
         # Get the top 5 probabilities and index of classes. This is returned as a tensor of lists
         p, classes = ps.topk(topk)

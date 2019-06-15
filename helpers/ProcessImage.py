@@ -28,7 +28,7 @@ def process_image(image_path):
     # Transpose the colors
     img = img.transpose((2, 0, 1))
           
-    return img
+    return np.array(img)
 
 
 def imshow(image, ax=None, title=None):
