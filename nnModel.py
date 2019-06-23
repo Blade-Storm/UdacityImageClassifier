@@ -1,5 +1,6 @@
 import torch
 from torch import nn as nn
+from torch.autograd import Variable
 import torchvision
 from torchvision import models
 import torch.nn.functional as F
@@ -14,9 +15,10 @@ import numpy as np
 
 
 def create_model(arch, hidden_units):
-    # Load a pretrained network (densenet161)
+    # Load a pretrained network (vgg19 or densenet161)
     # Define a new, untrained feed-forward network as a classifier, using ReLU activations and dropout
     print("Creating the model...")
+
     # Load a pretrained model
     if arch.lower() == "vgg19":
         model = models.vgg19(pretrained=True)
@@ -26,7 +28,7 @@ def create_model(arch, hidden_units):
         input_features = 2208
     else:
         # We dont support the entered model architecture so return to start over
-        print("Model architecture: {} is not supported. \n Try vgg19 or densenet161".format(arch.lower()))
+        print("Model architecture: {}, is not supported. \n Try vgg19 or densenet161".format(arch.lower()))
         return 0
     
     # Freeze the parameters so we dont backpropagate through them
@@ -49,7 +51,7 @@ def train_model(model, train_dataloaders, valid_dataloaders, criterion, optimize
     # Train the classifier layers using backpropagation using the pre-trained network to get the features
     # Track the loss and accuracy on the validation set to determine the best hyperparameters
     print("Training the model...\n")
-        
+
     # Use the GPU if its available
     if use_gpu:
         device = torch.device('cuda')
@@ -64,7 +66,8 @@ def train_model(model, train_dataloaders, valid_dataloaders, criterion, optimize
 
     # With an active session train our model
     #with active_session():
-    train_losses, test_losses = [], []
+    # Keep track of the losses and accuracies for training and validation
+    train_losses, validation_losses, training_accuracies, validation_accuracies = [], [], [], []
 
     # Create the training loop
     for e in range(epochs):
@@ -72,6 +75,8 @@ def train_model(model, train_dataloaders, valid_dataloaders, criterion, optimize
         model.train()
         # Define the training loss for each epoch
         training_loss = 0
+
+        training_accuracy = 0
         
         for images, labels in train_dataloaders:            
             # Move the image and label tensors to the default device
@@ -94,12 +99,19 @@ def train_model(model, train_dataloaders, valid_dataloaders, criterion, optimize
 
             # Keep track of the training loss
             training_loss += loss.item()
+
+            # Get the top class from the predictions
+            ps = torch.exp(logps)
+            top_p, top_class = ps.topk(1, dim=1)
+            equals = top_class == labels.view(*top_class.shape)
+            
+            # Get the accuracy for the prediction
+            training_accuracy += torch.mean(equals.type(torch.FloatTensor)).item()
+            
         else:
             # Keep track of the validation loss and accuracy
             validation_loss = 0
-            accuracy = 0
-            
-            #print("validation")
+            validation_accuracy = 0
             
             # Set the model to evaluation mode. This will turn off the dropout functionality
             model.eval()
@@ -110,9 +122,7 @@ def train_model(model, train_dataloaders, valid_dataloaders, criterion, optimize
                 for images, labels in valid_dataloaders:
                     # Move the image and label tensors to the default device
                     images, labels = images.to(device), labels.to(device)
-                    
-                    #images.resize_(images.shape[0], -1)
-                    
+                                        
                     # Get the log probability 
                     logps = model.forward(images)
                     
@@ -125,32 +135,40 @@ def train_model(model, train_dataloaders, valid_dataloaders, criterion, optimize
                     # Get the top class from the predictions
                     top_p, top_class = ps.topk(1, dim=1)
                     equals = top_class == labels.view(*top_class.shape)
-                    # equals = (labels.data == ps.max(1)[1])
+                    
                     # Get the accuracy for the prediction
-                    accuracy += torch.mean(equals.type(torch.FloatTensor)).item()
+                    validation_accuracy += torch.mean(equals.type(torch.FloatTensor)).item()
                     
                     # Keep track of the validation loss
                     validation_loss += loss.item()
                     
-            # Get the total time that has elapsed
-            elapsed_time = time.time() - start_time  
+        # Get the total time that has elapsed
+        elapsed_time = time.time() - start_time  
 
-            # Update the training and validation losses to graph the learning curve
-            train_losses.append(training_loss/len(train_dataloaders))
-            test_losses.append(validation_loss/len(valid_dataloaders))
-            
-            
-            # Print out the statistical information
-            print("Training Epoch: {}\n".format(e),
-                    "Training Loss: {}\n".format(training_loss/len(train_dataloaders)),
-                    "Validation Loss: {}\n".format(validation_loss/len(valid_dataloaders)),
-                    "Accuracy: {}\n".format(accuracy/len(valid_dataloaders) * 100),
-                    "Total Time: {}\n".format(elapsed_time))  
+        # Update the training and validation losses to graph the learning curve
+        train_losses.append(training_loss/len(train_dataloaders))
+        validation_losses.append(validation_loss/len(valid_dataloaders))
+        training_accuracies.append(training_accuracy/len(train_dataloaders) * 100)
+        validation_accuracies.append(validation_accuracy/len(valid_dataloaders) * 100)
 
+        # Print out the statistical information
+        print("Training Epoch: {}\n".format(e),
+                "Training Loss: {}\n".format(training_loss/len(train_dataloaders)),
+                "Training Accuracy: {}\n".format(training_accuracy/len(train_dataloaders) * 100),
+                "Validation Loss: {}\n".format(validation_loss/len(valid_dataloaders)),
+                "Validation Accuracy: {}\n".format(validation_accuracy/len(valid_dataloaders) * 100),
+                "Total Time: {}\n".format(elapsed_time))  
+
+    
     plt.plot(train_losses, label='Training loss')
-    plt.plot(test_losses, label='Validation loss')
+    plt.plot(validation_losses, label='Validation loss')
     plt.legend(frameon=False)
     plt.show()
+    plt.plot(training_accuracies, label='Training Accuracy')
+    plt.plot(validation_accuracies, label='Validation Accuracy')
+    plt.legend(frameon=False)
+    plt.show()
+
     print("\nDone training the model \n")
 
 
@@ -158,9 +176,6 @@ def train_model(model, train_dataloaders, valid_dataloaders, criterion, optimize
 def save_model(model, train_datasets, learning_rate, batch_size, epochs, criterion, optimizer, hidden_units, arch):
 
     print("Saving the model...")
-    # Before saving the model set it to cpu to aviod loading issues later
-    #device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    #model.to(device)
 
     # Save the train image dataset
     model.class_to_idx = train_datasets.class_to_idx
@@ -171,7 +186,6 @@ def save_model(model, train_datasets, learning_rate, batch_size, epochs, criteri
         input_features = 2208
 
     # Save other hyperparamters
-    # TODO: Pass in the input size based on the model
     checkpoint = {'input_size': input_features,
                 'output_size': 102,
                 'hidden_units': hidden_units,
@@ -190,11 +204,10 @@ def save_model(model, train_datasets, learning_rate, batch_size, epochs, criteri
     print("Done saving the model")
 
 
-# TODO: Write a function that loads a checkpoint and rebuilds the model
 def load_model(checkpoint_file):
     print("Loading the model...")
     # Load the model and force the tensors to be on the CPU
-    checkpoint = torch.load(checkpoint_file,  map_location=lambda storage, loc: storage)
+    checkpoint = torch.load(checkpoint_file)
    
     if(checkpoint['arch'].lower() == 'vgg19'):
         model = models.vgg19(pretrained=True)
@@ -228,36 +241,32 @@ def predict(categories, image_path, model, use_gpu, topk):
     with torch.no_grad():
         # Implement the code to predict the class from an image file    
         # Processs the image
-        image = helpers.ProcessImage.process_image(image_path)
+        image_tensor = helpers.ProcessImage.process_image(image_path)
 
-        # We need a tensor for the model so change the image to a np.Array and then a tensor
-        image = torch.from_numpy(image).float()
-        image.unsqueeze_(0)
+        # We need a tensor for the model so change the image to a np.Array and then a tensor        
+        image = torch.from_numpy(np.array([image_tensor])).float()
+        #image_tensor = image_tensor.unsqueeze_(0)
+        #image = Variable(image_tensor)
         image.to('cpu')
 
         # Use the model to make a prediction
         logps = model.forward(image)
         ps = torch.exp(logps)
-        #ps = F.softmax(logps.data)
-        #print("PS: {}".format(ps))
+
         # Get the top 5 probabilities and index of classes. This is returned as a tensor of lists
         p, classes = ps.topk(topk)
-        #print("Raw Probs: {}".format(p))
-        #print("Raw Classes: {}".format(classes))
+
         # Get the first items in the tensor list to get the list of probs and classes
         top_p = p.tolist()[0]
         top_classes = classes.tolist()[0]
 
-        
-        #print(top_classes)
-
         # Reverse the categories dictionary
-        #inv_categories = {value: key for key, value in categories.items()}
+        idx_to_class = {v:k for k, v in model.class_to_idx.items()}
 
         # Get the lables from the json file
         labels = []
         for c in top_classes:
-            labels.append(categories[str(c)])
+            labels.append(categories[idx_to_class[c]])
 
     
         output = list(zip(top_p, labels))
@@ -267,7 +276,7 @@ def predict(categories, image_path, model, use_gpu, topk):
 
 
 def sanity_check(cat_to_name, file_path, model, index):
-    # Display an image along with the top 5 classes
+    # Display an image along with the top classes
     # Create a plot that will have the image and the bar graph
     fig = plt.figure(figsize = [10,5])
 

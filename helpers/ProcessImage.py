@@ -1,6 +1,8 @@
 from PIL import Image
 import numpy as np
 import matplotlib.pyplot as plt
+import torchvision
+from torchvision import transforms
 
 def process_image(image_path):
     ''' Scales, crops, and normalizes a PIL image for a PyTorch model,
@@ -11,7 +13,13 @@ def process_image(image_path):
     # Open the image
     img = Image.open(image_path)
     
-    # Resize the image
+    #transform = transforms.Compose([transforms.Resize(256),
+    #                                transforms.CenterCrop(224),
+    #                                transforms.ToTensor(),
+    #                                transforms.Normalize([0.485, 0.456, 0.406],
+    #                                                    [0.229, 0.224, 0.225])])
+    #return transform(img).float()
+    # Resize the image    
     img = img.resize((256,256))
     
     # Crop the image
@@ -34,7 +42,7 @@ def process_image(image_path):
 def imshow(image, ax=None, title=None):
     """Imshow for Tensor."""
     if ax is None:
-        fig, ax = plt.subplots()
+        _, ax = plt.subplots()
     
     # PyTorch tensors assume the color channel is the first dimension
     # but matplotlib assumes is the third dimension

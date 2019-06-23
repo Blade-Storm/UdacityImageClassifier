@@ -17,7 +17,7 @@ import argparse
 parser = argparse.ArgumentParser(description="Load a Neural Network to use for inference")
 parser.add_argument('data_directory', 
                     help="The relative path to the image files to infer on.")
-parser.add_argument('checkpoint', 
+parser.add_argument('checkpoint', default='./checkpoint.pth',
                     help="The relative path to the neural network checkpoint as a pth file.")
 parser.add_argument('--top_k', default=1, type=int,
                     help="The amount of most likley classes to return for the predictions")

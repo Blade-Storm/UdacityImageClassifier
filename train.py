@@ -17,17 +17,16 @@ import argparse
 # Create the parser and add the arguments
 parser = argparse.ArgumentParser(description="Train a Neural Network using transfer learning")
 # 1. Get the directory to the image files to train with
-parser.add_argument('data_directory', 
+parser.add_argument('data_directory', default='./flowers',
                     help="The relative path to the image files to train on. It should include two folders: 'train' and 'test' for training.")
 # 2. Get the directory to the image files to train with
 parser.add_argument('--save_dir', default='/',
-                    help="The relative path to save the neural network checkpoint")
-# TODO: Add more support for other architectures                    
+                    help="The relative path to save the neural network checkpoint")             
 # 3. Choose the architecture
 parser.add_argument('--arch', default="vgg19",
                     help="The architecture you wish to train the model with. Can be: vgg19 or densenet161")
 # 4. Set the hyperparameters: Learning Rate, Hidden Units, Training Epochs, Training batch size
-parser.add_argument('--learning_rate', type=float, default="0.01",
+parser.add_argument('--learning_rate', type=float, default="0.001",
                     help="The learning rate for the model")
 parser.add_argument('--hidden_units', type=int, default=512,
                     help="The number of units in the hidden layer")
@@ -60,7 +59,6 @@ model = nnModel.create_model(arch, hidden_units)
 if model != 0:
     # Define the loss function and optimizer
     criterion = nn.NLLLoss()
-    # TODO Maybe move this to a select optimizer function
     optimizer = optim.Adam(model.classifier.parameters(), learning_rate) 
 
     # Train the model with validation
