@@ -89,3 +89,4 @@ The `./flowers/test/1/image_06743.jpg` is the file path and name of the image we
 
 
 ## Licence
+[MIT](https://opensource.org/licenses/MIT)
