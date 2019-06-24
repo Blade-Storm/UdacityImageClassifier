@@ -64,6 +64,28 @@ Example use of all arguments:
 
 
 ### Using a trained model for inference
+Once you have a trained model we can use it to infer the flower names in the `test` folder. To do so use the `predict.py` file like so:
+
+`python predict.py './flowers/test/1/image_06743.jpg' './checkpoint.pth'` 
+
+The `./flowers/test/1/image_06743.jpg` is the file path and name of the image we wish to infer on. The file extention is required. By default this will return the top 1 prediction. Here is a list of arguments you can use to get the top n predictions or use the GPU for inference
+
+1. data_directory:
+- The relative path to the image file that you want to infer on. The file name and extention are required.
+2. checkpoint:
+- The relative path to the models checkpoint pth file. The file name and extention are required.
+3. --top_k:
+- The amount of most likley classes to return for the predictions
+- Default is 1
+4. --category_names:
+- The json file, including file path, to load category names
+- Default is './cat_to_name.json'
+5. --gpu:
+- Boolean value to infer with the GPU
+- Default is False
+
+
+
 
 
 ## Licence
