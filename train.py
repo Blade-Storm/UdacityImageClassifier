@@ -20,7 +20,7 @@ parser = argparse.ArgumentParser(description="Train a Neural Network using trans
 parser.add_argument('data_directory', default='./flowers',
                     help="The relative path to the image files to train on. It should include two folders: 'train' and 'test' for training.")
 # 2. Get the directory to the image files to train with
-parser.add_argument('--save_dir', default='/',
+parser.add_argument('--save_dir', default='./',
                     help="The relative path to save the neural network checkpoint")             
 # 3. Choose the architecture
 parser.add_argument('--arch', default="vgg19",

@@ -8,13 +8,19 @@ import time
 import helpers.ProcessImage
 import matplotlib.pyplot as plt
 import numpy as np
-#from workspace_utils import active_session
-
-
-
 
 
 def create_model(arch, hidden_units):
+    '''
+        Creates a pretrained model using VGG19 or Densenet161 and returns the model
+        
+        Inputs:
+        arch - The architecture to be used. Either 'vgg19' or 'densenet161'
+        hidden_units - The number of units in the hidden layer
+        
+        Outputs:
+        model - The created (loaded) pretrained model
+    '''
     # Load a pretrained network (vgg19 or densenet161)
     # Define a new, untrained feed-forward network as a classifier, using ReLU activations and dropout
     print("Creating the model...")
@@ -48,6 +54,21 @@ def create_model(arch, hidden_units):
 
 
 def train_model(model, train_dataloaders, valid_dataloaders, criterion, optimizer, epochs, use_gpu):
+    '''
+        Trains a model using a given loss function, optimizer, dataloaders, epochs, and whether or not to use the GPU. Outputs loss and accuracy numbers
+        
+        Inputs:
+        model - The model to train
+        train_dataloaders - The data for the training
+        valid_dataloaders - The data for the validation
+        criterion - The loss function 
+        optimizer - The optimizer
+        epochs - The number of epochs to run the training for
+        use_gpu - Whether or not to train with the GPU
+        
+        Outputs:
+        Prints out the training and validation losses and accuracies
+    '''
     # Train the classifier layers using backpropagation using the pre-trained network to get the features
     # Track the loss and accuracy on the validation set to determine the best hyperparameters
     print("Training the model...\n")
@@ -64,8 +85,6 @@ def train_model(model, train_dataloaders, valid_dataloaders, criterion, optimize
     # Capture the current time for tracking purposes
     start_time = time.time()
 
-    # With an active session train our model
-    #with active_session():
     # Keep track of the losses and accuracies for training and validation
     train_losses, validation_losses, training_accuracies, validation_accuracies = [], [], [], []
 
@@ -174,7 +193,23 @@ def train_model(model, train_dataloaders, valid_dataloaders, criterion, optimize
 
 
 def save_model(model, train_datasets, learning_rate, batch_size, epochs, criterion, optimizer, hidden_units, arch):
-
+    '''
+        Saves a model to a checkpoint file with the learning rate, batch size, epochs, loss function, optimizer, hidden units, and architecture used in training
+        
+        Inputs:
+        model - The model to train
+        train_datasets - The dataset for the training. This is used to get the classes to indexes
+        learning_rate - The learning rate used for training
+        criterion - The loss function 
+        optimizer - The optimizer
+        epochs - The number of epochs to run the training for
+        hidden_units - The hidden layers unit size
+        arch - The architecture used
+        save_directory - The directory to save the pth file to
+        
+        Outputs:
+        Saves the checkpoint.pth file to the given directory
+    '''
     print("Saving the model...")
 
     # Save the train image dataset
@@ -205,14 +240,22 @@ def save_model(model, train_datasets, learning_rate, batch_size, epochs, criteri
 
 
 def load_model(checkpoint_file):
+    '''
+        Loads a model using a checkpoint.pth file
+        
+        Inputs:
+        checkpoint_file - The file path and name for the checkpoint
+        
+        Outputs:
+        model - Returns the loaded model
+    '''
     print("Loading the model...")
     # Load the model and force the tensors to be on the CPU
     checkpoint = torch.load(checkpoint_file)
    
-    if(checkpoint['arch'].lower() == 'vgg19'):
-        model = models.vgg19(pretrained=True)
-    elif(checkpoint['arch'].lower() == 'densenet161'):
-        model = models.densenet161(pretrained=True)
+    if(checkpoint['arch'].lower() == 'vgg19' or checkpoint['arch'].lower() == 'densenet161'):
+        model = getattr(torchvision.models, checkpoint['arch'])(pretrained = True)
+
 
     model.classifier = checkpoint['classifier'] 
     model.load_state_dict(checkpoint['state_dict'])
@@ -229,7 +272,18 @@ def load_model(checkpoint_file):
 
 
 def predict(categories, image_path, model, use_gpu, topk):
-    ''' Predict the class (or classes) of an image using a trained deep learning model.
+    '''
+        Predict the class (or classes) of an image using a trained deep learning model.
+        
+        Inputs:
+        categories - The categories json file that maps the names of the flowers
+        image_path - The path and file name to the image to predict
+        use_gpu - Whether or not to use the gpu for inference
+        topk - The top n restults of the inference
+        
+        Outputs:
+        top_p - The probabilities for the predictions
+        labels - The class labels for the predictions
     '''
     # Use the GPU if its available
     #device = torch.device('cuda' if use_gpu else 'cpu')
@@ -276,6 +330,18 @@ def predict(categories, image_path, model, use_gpu, topk):
 
 
 def sanity_check(cat_to_name, file_path, model, index):
+    '''
+        A sanity check that shows the flower image that we are trying to infer and the outcome of the prediction
+        
+        Inputs:
+        cat_to_name - The categories json file that maps the names of the flowers
+        file_path - The path and file name to the image to predict
+        model - The model to use for inference
+        index - The index of the flower we are trying to infer
+        
+        Outputs:
+        Prints the image of the flower we are trying to predict and a bar graph of the predicted labels and their probabilities
+    '''
     # Display an image along with the top classes
     # Create a plot that will have the image and the bar graph
     fig = plt.figure(figsize = [10,5])
