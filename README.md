@@ -1,5 +1,5 @@
 # UdacityImageClassifier
-Final Project of the Udacity AI Programming with Python Nanodegree.
+Final Project of the [Udacity AI Programming with Python Nanodegree](https://www.udacity.com/course/ai-programming-python-nanodegree--nd089).
 An image classifier built with pytorch that predicts the names of flowers. The classifier currently has training, validation, and test data for 102 flowers and uses transfer learning with either VGG19 or Densenet161 to train and infer with.
 
 ## Downloads and Installations
